@@ -18,13 +18,9 @@ const sessionSecret = process.env.SESSION_SECRET || "dev-session-secret-change-m
 
 const scopes = [
   "offline_access",
-  "openid",
-  "profile",
-  "email",
   "accounting.transactions.read",
   "accounting.contacts.read",
-  "accounting.settings.read",
-  "accounting.reports.read"
+  "accounting.settings.read"
 ].join(" ");
 
 const oauthStates = new Map();
