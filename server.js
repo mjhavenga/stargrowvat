@@ -18,7 +18,7 @@ const sessionSecret = process.env.SESSION_SECRET || "dev-session-secret-change-m
 
 const scopes = [
   "offline_access",
-  "accounting.transactions.read",
+  "accounting.invoices.read",
   "accounting.contacts.read",
   "accounting.settings.read"
 ].join(" ");
