@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stargrow VAT</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Stargrow Europe</p>
+          <h1>VAT and ICP return</h1>
+        </div>
+        <a id="connectLink" class="button primary" href="/auth/xero">Connect Xero</a>
+      </header>
+
+      <section class="toolbar">
+        <label>
+          Organisation
+          <select id="tenantSelect"></select>
+        </label>
+        <label>
+          From
+          <input id="fromDate" type="date">
+        </label>
+        <label>
+          To
+          <input id="toDate" type="date">
+        </label>
+        <button id="previewButton" class="button">Fetch return</button>
+      </section>
+
+      <section id="message" class="message"></section>
+
+      <section class="metrics">
+        <article>
+          <span>Invoices</span>
+          <strong id="invoiceCount">-</strong>
+        </article>
+        <article>
+          <span>Credit notes</span>
+          <strong id="creditNoteCount">-</strong>
+        </article>
+        <article>
+          <span>Lines</span>
+          <strong id="lineCount">-</strong>
+        </article>
+        <article>
+          <span>ICP difference</span>
+          <strong id="icpDiff">-</strong>
+        </article>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <div class="panelHeader">
+            <h2>VAT return</h2>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Box</th>
+                  <th>Description</th>
+                  <th class="num">Net</th>
+                  <th class="num">VAT</th>
+                  <th class="num">Lines</th>
+                </tr>
+              </thead>
+              <tbody id="vatRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panelHeader">
+            <h2>ICP return</h2>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>VAT number</th>
+                  <th>Country</th>
+                  <th class="num">Goods</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="icpRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panelHeader">
+          <h2>Checks</h2>
+        </div>
+        <ul id="exceptions" class="checks"></ul>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

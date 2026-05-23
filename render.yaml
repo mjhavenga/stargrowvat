@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: stargrowvat
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: XERO_CLIENT_ID
+        sync: false
+      - key: XERO_CLIENT_SECRET
+        sync: false
+      - key: XERO_REDIRECT_URI
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

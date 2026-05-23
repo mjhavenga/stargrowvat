@@ -1,0 +1,14 @@
+{
+  "name": "stargrowvat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stargrow VAT and ICP reporting app for Xero",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

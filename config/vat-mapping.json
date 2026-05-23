@@ -1,0 +1,120 @@
+{
+  "vatBoxes": [
+    {
+      "box": "1a",
+      "description": "Leveringen/diensten belast met hoog tarief (21%)",
+      "taxRateNames": ["1 - BTW hoog te betalen (21%)"],
+      "taxRateIncludes": ["BTW hoog"],
+      "vatMode": "xeroTax"
+    },
+    {
+      "box": "1b",
+      "description": "Leveringen/diensten belast met laag tarief (9%)",
+      "taxRateNames": ["2 - BTW laag te betalen (9%)"],
+      "taxRateIncludes": ["BTW laag"],
+      "vatMode": "xeroTax"
+    },
+    {
+      "box": "1d",
+      "description": "Privégebruik correcties",
+      "taxRateIncludes": ["priv"],
+      "vatMode": "xeroTax"
+    },
+    {
+      "box": "1d-verlegd",
+      "description": "Leveringen/diensten belast met btw verlegd (21%)",
+      "taxRateIncludes": ["BTW verlegd hoog", "verlegd hoog"],
+      "vatMode": "xeroTax"
+    },
+    {
+      "box": "1e",
+      "description": "Leveringen/diensten belast met 0% of verlegd",
+      "taxRateIncludes": ["verkoop nul", "nul procent", "0%"],
+      "vatMode": "xeroTax"
+    },
+    {
+      "box": "3a",
+      "description": "Export buiten de EU",
+      "taxRateIncludes": ["export"],
+      "vatMode": "zero"
+    },
+    {
+      "box": "3b-goods",
+      "description": "Leveringen naar landen binnen de EU (goederen)",
+      "taxRateIncludes": ["IC-levering", "EU goods", "binnen EU"],
+      "vatMode": "zero",
+      "icp": true
+    },
+    {
+      "box": "3b-services",
+      "description": "Leveringen naar landen binnen de EU (diensten)",
+      "taxRateIncludes": ["IC-diensten", "EU services"],
+      "vatMode": "zero",
+      "icp": true
+    },
+    {
+      "box": "4a-high",
+      "description": "Import van buiten de EU - hoog tarief (21%)",
+      "taxRateIncludes": ["import", "buiten EU"],
+      "vatMode": "rate",
+      "rate": 0.21
+    },
+    {
+      "box": "4a-low",
+      "description": "Import van buiten de EU - laag tarief (9%)",
+      "taxRateIncludes": ["import", "9"],
+      "vatMode": "rate",
+      "rate": 0.09
+    },
+    {
+      "box": "4b-high",
+      "description": "IC-verwerving binnen de EU - hoog tarief (21%)",
+      "taxRateIncludes": ["IC-verwerving", "21"],
+      "vatMode": "rate",
+      "rate": 0.21
+    },
+    {
+      "box": "4b-low",
+      "description": "IC-verwerving binnen de EU - laag tarief (9%)",
+      "taxRateIncludes": ["IC-verwerving", "9"],
+      "vatMode": "rate",
+      "rate": 0.09
+    },
+    {
+      "box": "5b",
+      "description": "Voorbelasting / deductible input VAT",
+      "taxRateIncludes": ["voorbelasting", "input", "te vorderen"],
+      "vatMode": "xeroTax"
+    }
+  ],
+  "euCountries": {
+    "AT": "Austria",
+    "BE": "Belgium",
+    "BG": "Bulgaria",
+    "CY": "Cyprus",
+    "CZ": "Czechia",
+    "DE": "Germany",
+    "DK": "Denmark",
+    "EE": "Estonia",
+    "ES": "Spain",
+    "FI": "Finland",
+    "FR": "France",
+    "GR": "Greece",
+    "HR": "Croatia",
+    "HU": "Hungary",
+    "IE": "Ireland",
+    "IT": "Italy",
+    "LT": "Lithuania",
+    "LU": "Luxembourg",
+    "LV": "Latvia",
+    "MT": "Malta",
+    "NL": "Netherlands",
+    "PL": "Poland",
+    "PT": "Portugal",
+    "RO": "Romania",
+    "SE": "Sweden",
+    "SI": "Slovenia",
+    "SK": "Slovakia",
+    "XI": "Northern Ireland"
+  }
+}
