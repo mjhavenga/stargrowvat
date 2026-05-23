@@ -7,101 +7,167 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">Stargrow Europe</p>
-          <h1>VAT and ICP return</h1>
-        </div>
-        <a id="connectLink" class="button primary" href="/auth/xero">Connect Xero</a>
-      </header>
+    <div class="appFrame">
+      <aside class="sidebar">
+        <div class="brandMark">SG</div>
+        <nav class="nav">
+          <a class="navItem active" href="#vat">VAT</a>
+          <a class="navItem" href="#icp">ICP</a>
+          <a class="navItem" href="#checks">Checks</a>
+        </nav>
+      </aside>
 
-      <section class="toolbar">
-        <label>
-          Organisation
-          <select id="tenantSelect"></select>
-        </label>
-        <label>
-          From
-          <input id="fromDate" type="date">
-        </label>
-        <label>
-          To
-          <input id="toDate" type="date">
-        </label>
-        <button id="previewButton" class="button">Fetch return</button>
-      </section>
+      <main class="shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Stargrow Europe</p>
+            <h1>VAT and ICP return</h1>
+            <p class="subtitle">Xero-sourced VAT preparation, ICP reconciliation, and exception review.</p>
+          </div>
+          <div class="headerActions">
+            <span id="connectionBadge" class="statusBadge neutral">Checking Xero</span>
+            <a id="connectLink" class="button primary" href="/auth/xero">Connect Xero</a>
+          </div>
+        </header>
 
-      <section id="message" class="message"></section>
+        <section class="toolbar" aria-label="Return controls">
+          <label class="tenantField">
+            Organisation
+            <select id="tenantSelect"></select>
+          </label>
+          <label>
+            From
+            <input id="fromDate" type="date">
+          </label>
+          <label>
+            To
+            <input id="toDate" type="date">
+          </label>
+          <button id="previewButton" class="button fetchButton">Fetch return</button>
+        </section>
 
-      <section class="metrics">
-        <article>
-          <span>Invoices</span>
-          <strong id="invoiceCount">-</strong>
-        </article>
-        <article>
-          <span>Credit notes</span>
-          <strong id="creditNoteCount">-</strong>
-        </article>
-        <article>
-          <span>Lines</span>
-          <strong id="lineCount">-</strong>
-        </article>
-        <article>
-          <span>ICP difference</span>
-          <strong id="icpDiff">-</strong>
-        </article>
-      </section>
+        <section id="message" class="message"></section>
 
-      <section class="grid">
-        <div class="panel">
+        <section class="workbench">
+          <div>
+            <span class="workbenchLabel">Active return</span>
+            <strong id="periodLabel">Current quarter</strong>
+          </div>
+          <div>
+            <span class="workbenchLabel">Source</span>
+            <strong>Xero accounting</strong>
+          </div>
+          <div>
+            <span class="workbenchLabel">Status</span>
+            <strong id="returnStatus">Ready to fetch</strong>
+          </div>
+          <div class="workbenchActions">
+            <button class="iconButton" title="Download workbook" type="button" disabled>↓</button>
+            <button class="iconButton" title="Refresh" type="button" id="refreshButton">↻</button>
+          </div>
+        </section>
+
+        <section class="metrics" aria-label="Period summary">
+          <article>
+            <span>Invoices</span>
+            <strong id="invoiceCount">-</strong>
+          </article>
+          <article>
+            <span>Credit notes</span>
+            <strong id="creditNoteCount">-</strong>
+          </article>
+          <article>
+            <span>Source lines</span>
+            <strong id="lineCount">-</strong>
+          </article>
+          <article>
+            <span>ICP difference</span>
+            <strong id="icpDiff">-</strong>
+          </article>
+        </section>
+
+        <section class="tabs" aria-label="Return views">
+          <a class="tab active" href="#vat">VAT Return</a>
+          <a class="tab" href="#icp">ICP Listing</a>
+          <a class="tab" href="#checks">Exceptions</a>
+        </section>
+
+        <section class="grid">
+          <div id="vat" class="panel">
+            <div class="panelHeader">
+              <div>
+                <p class="panelKicker">Dutch VAT return</p>
+                <h2>VAT boxes</h2>
+              </div>
+              <span class="panelMeta">Template mapped</span>
+            </div>
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Box</th>
+                    <th>Description</th>
+                    <th class="num">Net</th>
+                    <th class="num">VAT</th>
+                    <th class="num">Lines</th>
+                  </tr>
+                </thead>
+                <tbody id="vatRows">
+                  <tr class="emptyRow"><td colspan="5">No return data loaded yet.</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="2">Total mapped activity</td>
+                    <td id="vatNetTotal" class="num">-</td>
+                    <td id="vatVatTotal" class="num">-</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div id="icp" class="panel">
+            <div class="panelHeader">
+              <div>
+                <p class="panelKicker">EU listing</p>
+                <h2>ICP customers</h2>
+              </div>
+              <span class="panelMeta">Reconciles to 3b</span>
+            </div>
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>VAT number</th>
+                    <th>Country</th>
+                    <th class="num">Goods</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="icpRows">
+                  <tr class="emptyRow"><td colspan="5">No ICP data loaded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="checks" class="panel checksPanel">
           <div class="panelHeader">
-            <h2>VAT return</h2>
+            <div>
+              <p class="panelKicker">Review queue</p>
+              <h2>Checks</h2>
+            </div>
+            <span id="checkCount" class="panelMeta">0 open</span>
           </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Box</th>
-                  <th>Description</th>
-                  <th class="num">Net</th>
-                  <th class="num">VAT</th>
-                  <th class="num">Lines</th>
-                </tr>
-              </thead>
-              <tbody id="vatRows"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panelHeader">
-            <h2>ICP return</h2>
-          </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>VAT number</th>
-                  <th>Country</th>
-                  <th class="num">Goods</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody id="icpRows"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panelHeader">
-          <h2>Checks</h2>
-        </div>
-        <ul id="exceptions" class="checks"></ul>
-      </section>
-    </main>
+          <ul id="exceptions" class="checks">
+            <li class="emptyCheck">No checks have run yet.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
 
     <script src="/app.js"></script>
   </body>
