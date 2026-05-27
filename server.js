@@ -193,12 +193,29 @@ function xeroDateFilter(fromDate, toDate, field = "Date") {
   return `${field}>=DateTime(${from})&&${field}<=DateTime(${to})`;
 }
 
-function amountSign(sourceType) {
-  return sourceType.includes("Credit Note") ? -1 : 1;
+function sourceLabel(source) {
+  const labels = {
+    ACCREC: "Receivable Invoice",
+    ACCRECCREDIT: "Receivable Credit Note",
+    ACCPAY: "Payable Bill",
+    ACCPAYCREDIT: "Payable Credit Note"
+  };
+  return labels[source.Type] || source.Type || "Xero Transaction";
 }
 
-function normaliseLine(source, sourceType) {
-  const signValue = amountSign(sourceType);
+function amountSign(source) {
+  const signs = {
+    ACCREC: 1,
+    ACCRECCREDIT: -1,
+    ACCPAY: -1,
+    ACCPAYCREDIT: 1
+  };
+  return signs[source.Type] || 1;
+}
+
+function normaliseLine(source) {
+  const signValue = amountSign(source);
+  const typeLabel = sourceLabel(source);
   const date = source.DateString || source.Date || source.FullyPaidOnDate || "";
   const contact = source.Contact?.Name || "";
   return (source.LineItems || []).map(line => {
@@ -206,7 +223,8 @@ function normaliseLine(source, sourceType) {
     const tax = Number(line.TaxAmount || 0) * signValue;
     return {
       date: String(date).slice(0, 10),
-      source: sourceType,
+      source: typeLabel,
+      sourceType: source.Type || "",
       contact,
       reference: source.InvoiceNumber || source.CreditNoteNumber || source.BankTransactionID || source.Reference || "",
       details: [contact, line.Description].filter(Boolean).join(" - "),
@@ -302,8 +320,8 @@ async function buildPreview(tenantId, fromDate, toDate) {
 
   const taxRateByType = new Map((taxRates.TaxRates || []).map(rate => [rate.TaxType, rate.Name]));
   const lines = [
-    ...invoices.flatMap(invoice => normaliseLine(invoice, "Receivable Invoice")),
-    ...creditNotes.flatMap(note => normaliseLine(note, "Receivable Credit Note"))
+    ...invoices.flatMap(invoice => normaliseLine(invoice)),
+    ...creditNotes.flatMap(note => normaliseLine(note))
   ].map(line => ({
     ...line,
     taxName: taxRateByType.get(line.taxType) || line.taxType
@@ -328,6 +346,7 @@ async function buildPreview(tenantId, fromDate, toDate) {
       .map(line => ({
         date: line.date,
         source: line.source,
+        sourceType: line.sourceType,
         contact: line.contact,
         reference: line.reference,
         account: line.account,

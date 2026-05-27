@@ -189,6 +189,7 @@ function renderPreview(data) {
       <tr>
         <td>${escapeHtml(row.date)}</td>
         <td>${escapeHtml(row.source)}</td>
+        <td>${escapeHtml(row.sourceType)}</td>
         <td>${escapeHtml(row.contact)}</td>
         <td>${escapeHtml(row.reference)}</td>
         <td>${escapeHtml(row.account)}</td>
@@ -198,7 +199,7 @@ function renderPreview(data) {
         <td class="num">${money(row.gross)}</td>
       </tr>
     `).join("")
-    : "<tr class=\"emptyRow\"><td colspan=\"9\">No Xero transactions loaded yet.</td></tr>";
+    : "<tr class=\"emptyRow\"><td colspan=\"10\">No Xero transactions loaded yet.</td></tr>";
 }
 
 async function loadStatus() {
