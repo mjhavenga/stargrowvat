@@ -11,10 +11,6 @@ const fromDate = document.querySelector("#fromDate");
 const toDate = document.querySelector("#toDate");
 const previewButton = document.querySelector("#previewButton");
 
-const invoiceCount = document.querySelector("#invoiceCount");
-const creditNoteCount = document.querySelector("#creditNoteCount");
-const lineCount = document.querySelector("#lineCount");
-const icpDiff = document.querySelector("#icpDiff");
 const vatRows = document.querySelector("#vatRows");
 const icpRows = document.querySelector("#icpRows");
 const exceptions = document.querySelector("#exceptions");
@@ -22,8 +18,6 @@ const connectionBadge = document.querySelector("#connectionBadge");
 const checkCount = document.querySelector("#checkCount");
 const returnStatus = document.querySelector("#returnStatus");
 const periodLabel = document.querySelector("#periodLabel");
-const refreshButton = document.querySelector("#refreshButton");
-const exportButton = document.querySelector("#exportButton");
 const transactionExportButton = document.querySelector("#transactionExportButton");
 const vatNetTotal = document.querySelector("#vatNetTotal");
 const vatVatTotal = document.querySelector("#vatVatTotal");
@@ -183,7 +177,6 @@ async function saveReturnSnapshot(returnKind, status) {
       returnData: currentPreviewData
     })
   });
-  exportButton.disabled = false;
   transactionExportButton.disabled = false;
   setMessage(`${returnKind} return ${status.toLowerCase()}.`);
   await loadHistory();
@@ -191,12 +184,7 @@ async function saveReturnSnapshot(returnKind, status) {
 
 function renderPreview(data) {
   currentPreviewData = data;
-  exportButton.disabled = false;
   transactionExportButton.disabled = false;
-  invoiceCount.textContent = data.counts.invoices;
-  creditNoteCount.textContent = data.counts.creditNotes;
-  lineCount.textContent = data.counts.lines;
-  icpDiff.textContent = money(data.icp.reconciliationDifference);
   vatNetTotal.textContent = money(data.vat.totals.net);
   vatVatTotal.textContent = money(data.vat.totals.vat);
   loadVatReturnMark();
@@ -340,7 +328,6 @@ async function loadHistory() {
 async function openSavedReturn(id) {
   const { return: record } = await api(`/api/returns/${encodeURIComponent(id)}`);
   currentPreviewData = record.returnData;
-  exportButton.disabled = false;
   transactionExportButton.disabled = false;
   if (record.period?.fromDate) fromDate.value = record.period.fromDate;
   if (record.period?.toDate) toDate.value = record.period.toDate;
@@ -422,8 +409,6 @@ previewButton.addEventListener("click", async () => {
   }
 });
 
-refreshButton.addEventListener("click", () => previewButton.click());
-exportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
 transactionExportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
 fromDate.addEventListener("change", updatePeriodLabel);
 toDate.addEventListener("change", updatePeriodLabel);
