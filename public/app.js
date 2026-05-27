@@ -1,4 +1,10 @@
 const tenantSelect = document.querySelector("#tenantSelect");
+const appFrame = document.querySelector(".appFrame");
+const loginScreen = document.querySelector("#loginScreen");
+const loginForm = document.querySelector("#loginForm");
+const loginEmail = document.querySelector("#loginEmail");
+const loginPassword = document.querySelector("#loginPassword");
+const loginMessage = document.querySelector("#loginMessage");
 const connectLink = document.querySelector("#connectLink");
 const message = document.querySelector("#message");
 const fromDate = document.querySelector("#fromDate");
@@ -17,6 +23,7 @@ const checkCount = document.querySelector("#checkCount");
 const returnStatus = document.querySelector("#returnStatus");
 const periodLabel = document.querySelector("#periodLabel");
 const refreshButton = document.querySelector("#refreshButton");
+const exportButton = document.querySelector("#exportButton");
 const vatNetTotal = document.querySelector("#vatNetTotal");
 const vatVatTotal = document.querySelector("#vatVatTotal");
 const transactionRows = document.querySelector("#transactionRows");
@@ -31,9 +38,14 @@ const icpTotalValue = document.querySelector("#icpTotalValue");
 const vat3bValue = document.querySelector("#vat3bValue");
 const icpReconDiffValue = document.querySelector("#icpReconDiffValue");
 const icpReconStatus = document.querySelector("#icpReconStatus");
+const refreshHistoryButton = document.querySelector("#refreshHistoryButton");
+const historyRows = document.querySelector("#historyRows");
+const historyCount = document.querySelector("#historyCount");
 const pageLinks = document.querySelectorAll("[data-page-link]");
 const pageViews = document.querySelectorAll("[data-page]");
-const validPages = new Set(["vat-recon", "transactions", "icp"]);
+const validPages = new Set(["vat-recon", "transactions", "icp", "history"]);
+
+let currentPreviewData = null;
 
 function money(value) {
   return new Intl.NumberFormat("en-ZA", {
@@ -76,8 +88,21 @@ async function api(path, options = {}) {
     ...options
   });
   const body = await response.json();
+  if (response.status === 401) {
+    showLogin();
+  }
   if (!response.ok) throw new Error(body.error || "Request failed");
   return body;
+}
+
+function showLogin() {
+  loginScreen.classList.add("active");
+  appFrame.classList.add("locked");
+}
+
+function showApp() {
+  loginScreen.classList.remove("active");
+  appFrame.classList.remove("locked");
 }
 
 function setDefaultDates() {
@@ -114,7 +139,8 @@ function vatReturnMarkKey() {
   return `stargrowvat:${tenantSelect.value || "no-tenant"}:${fromDate.value || "from"}:${toDate.value || "to"}:vat-status`;
 }
 
-function setVatReturnMark(status) {
+async function setVatReturnMark(status) {
+  await saveReturnSnapshot("VAT", status);
   window.localStorage.setItem(vatReturnMarkKey(), status);
   vatReturnBadge.textContent = status;
   returnStatus.textContent = status;
@@ -129,7 +155,8 @@ function icpReturnMarkKey() {
   return `stargrowvat:${tenantSelect.value || "no-tenant"}:${fromDate.value || "from"}:${toDate.value || "to"}:icp-status`;
 }
 
-function setIcpReturnMark(status) {
+async function setIcpReturnMark(status) {
+  await saveReturnSnapshot("ICP", status);
   window.localStorage.setItem(icpReturnMarkKey(), status);
   icpReturnBadge.textContent = status;
 }
@@ -139,7 +166,30 @@ function loadIcpReturnMark() {
   icpReturnBadge.textContent = status;
 }
 
+async function saveReturnSnapshot(returnKind, status) {
+  if (!currentPreviewData) {
+    setMessage("Fetch or open a return before saving it.", true);
+    return;
+  }
+  const tenantName = tenantSelect.selectedOptions[0]?.textContent || tenantSelect.value;
+  await api("/api/returns", {
+    method: "POST",
+    body: JSON.stringify({
+      returnKind,
+      status,
+      tenantId: tenantSelect.value,
+      tenantName,
+      returnData: currentPreviewData
+    })
+  });
+  exportButton.disabled = false;
+  setMessage(`${returnKind} return ${status.toLowerCase()}.`);
+  await loadHistory();
+}
+
 function renderPreview(data) {
+  currentPreviewData = data;
+  exportButton.disabled = false;
   invoiceCount.textContent = data.counts.invoices;
   creditNoteCount.textContent = data.counts.creditNotes;
   lineCount.textContent = data.counts.lines;
@@ -183,10 +233,41 @@ function renderPreview(data) {
     : "<li class=\"emptyCheck\">No ICP exceptions detected.</li>";
   checkCount.textContent = `${data.exceptions.length} open`;
 
-  transactionSheetCount.textContent = `${data.transactions.length} lines`;
-  transactionRows.innerHTML = data.transactions.length
-    ? data.transactions.map(row => `
+  renderTransactionSheet(data.transactions || []);
+}
+
+function groupedTransactions(transactions) {
+  const groups = new Map();
+  for (const row of transactions) {
+    const key = `${row.vatBox || "unmapped"}|${row.vatCategory || "Unmapped"}`;
+    const group = groups.get(key) || {
+      vatBox: row.vatBox || "unmapped",
+      vatCategory: row.vatCategory || "Unmapped",
+      rows: [],
+      net: 0,
+      tax: 0,
+      gross: 0
+    };
+    group.rows.push(row);
+    group.net += Number(row.net || 0);
+    group.tax += Number(row.tax || 0);
+    group.gross += Number(row.gross || 0);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+function renderTransactionSheet(transactions) {
+  transactionSheetCount.textContent = `${transactions.length} lines`;
+  transactionRows.innerHTML = transactions.length
+    ? groupedTransactions(transactions).map(group => `
+      <tr class="groupRow">
+        <td colspan="12">${escapeHtml(group.vatBox)} - ${escapeHtml(group.vatCategory)}</td>
+      </tr>
+      ${group.rows.map(row => `
       <tr>
+        <td>${escapeHtml(row.vatBox)}</td>
+        <td>${escapeHtml(row.vatCategory)}</td>
         <td>${escapeHtml(row.date)}</td>
         <td>${escapeHtml(row.source)}</td>
         <td>${escapeHtml(row.sourceType)}</td>
@@ -198,8 +279,15 @@ function renderPreview(data) {
         <td class="num">${money(row.tax)}</td>
         <td class="num">${money(row.gross)}</td>
       </tr>
+      `).join("")}
+      <tr class="subtotalRow">
+        <td colspan="9">Subtotal</td>
+        <td class="num">${money(group.net)}</td>
+        <td class="num">${money(group.tax)}</td>
+        <td class="num">${money(group.gross)}</td>
+      </tr>
     `).join("")
-    : "<tr class=\"emptyRow\"><td colspan=\"10\">No Xero transactions loaded yet.</td></tr>";
+    : "<tr class=\"emptyRow\"><td colspan=\"12\">No Xero transactions loaded yet.</td></tr>";
 }
 
 async function loadStatus() {
@@ -223,6 +311,86 @@ async function loadStatus() {
     <option value="${escapeHtml(tenant.tenantId)}">${escapeHtml(tenant.tenantName || tenant.tenantId)}</option>
   `).join("");
   setMessage(tenants.length ? "Connected. Choose a period and fetch the return." : "Connected, but no Xero organisations were returned.", !tenants.length);
+  loadVatReturnMark();
+  loadIcpReturnMark();
+}
+
+async function loadHistory() {
+  const { returns } = await api("/api/returns");
+  historyCount.textContent = `${returns.length} returns`;
+  historyRows.innerHTML = returns.length
+    ? returns.map(item => `
+      <tr>
+        <td>${escapeHtml(new Date(item.savedAt).toLocaleString())}</td>
+        <td>${escapeHtml(item.period?.fromDate || "-")} to ${escapeHtml(item.period?.toDate || "-")}</td>
+        <td>${escapeHtml(item.returnKind)}</td>
+        <td>${escapeHtml(item.status)}</td>
+        <td>${escapeHtml(item.tenantName || item.tenantId)}</td>
+        <td class="num">${escapeHtml(item.counts?.lines || 0)}</td>
+        <td class="num">${money(item.vatTotals?.vat || 0)}</td>
+        <td><button class="button secondaryButton historyOpenButton" type="button" data-return-id="${escapeHtml(item.id)}">Open</button></td>
+      </tr>
+    `).join("")
+    : "<tr class=\"emptyRow\"><td colspan=\"8\">No saved returns yet.</td></tr>";
+}
+
+async function openSavedReturn(id) {
+  const { return: record } = await api(`/api/returns/${encodeURIComponent(id)}`);
+  currentPreviewData = record.returnData;
+  if (record.period?.fromDate) fromDate.value = record.period.fromDate;
+  if (record.period?.toDate) toDate.value = record.period.toDate;
+  updatePeriodLabel();
+  vatReturnBadge.textContent = record.returnKind === "VAT" ? record.status : "Opened from history";
+  icpReturnBadge.textContent = record.returnKind === "ICP" ? record.status : "Opened from history";
+  returnStatus.textContent = record.status;
+  renderPreview(record.returnData);
+  window.location.hash = "#vat-recon";
+  setActivePage("vat-recon");
+  setMessage("Saved return opened.");
+}
+
+async function exportCurrentReturn() {
+  if (!currentPreviewData) {
+    setMessage("Fetch or open a return before exporting.", true);
+    return;
+  }
+  const response = await fetch("/api/export-excel", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ returnData: currentPreviewData })
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Export failed");
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `stargrow-vat-${fromDate.value || "from"}-${toDate.value || "to"}.xls`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function checkAuth() {
+  const response = await fetch("/api/me");
+  const me = await response.json();
+  if (!me.authenticated) {
+    showLogin();
+    loginMessage.textContent = me.loginConfigured ? "" : "Login is not configured on the server.";
+    return false;
+  }
+  showApp();
+  return true;
+}
+
+async function initApp() {
+  setDefaultDates();
+  setActivePage(activePageFromHash());
+  if (await checkAuth()) {
+    await loadStatus();
+    await loadHistory();
+  }
 }
 
 previewButton.addEventListener("click", async () => {
@@ -239,6 +407,7 @@ previewButton.addEventListener("click", async () => {
       })
     });
     renderPreview(data);
+    await loadHistory();
     setMessage("Return preview updated.");
   } catch (error) {
     returnStatus.textContent = "Action needed";
@@ -249,16 +418,40 @@ previewButton.addEventListener("click", async () => {
 });
 
 refreshButton.addEventListener("click", () => previewButton.click());
+exportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
 fromDate.addEventListener("change", updatePeriodLabel);
 toDate.addEventListener("change", updatePeriodLabel);
 tenantSelect.addEventListener("change", loadVatReturnMark);
 tenantSelect.addEventListener("change", loadIcpReturnMark);
-saveDraftButton.addEventListener("click", () => setVatReturnMark("Saved as draft"));
-filedButton.addEventListener("click", () => setVatReturnMark("Finalised and filed"));
-icpDraftButton.addEventListener("click", () => setIcpReturnMark("Saved as draft"));
-icpFiledButton.addEventListener("click", () => setIcpReturnMark("Finalised and filed"));
+saveDraftButton.addEventListener("click", () => setVatReturnMark("Saved as draft").catch(error => setMessage(error.message, true)));
+filedButton.addEventListener("click", () => setVatReturnMark("Finalised and filed").catch(error => setMessage(error.message, true)));
+icpDraftButton.addEventListener("click", () => setIcpReturnMark("Saved as draft").catch(error => setMessage(error.message, true)));
+icpFiledButton.addEventListener("click", () => setIcpReturnMark("Finalised and filed").catch(error => setMessage(error.message, true)));
+refreshHistoryButton.addEventListener("click", () => loadHistory().catch(error => setMessage(error.message, true)));
+historyRows.addEventListener("click", event => {
+  const button = event.target.closest("[data-return-id]");
+  if (button) openSavedReturn(button.dataset.returnId).catch(error => setMessage(error.message, true));
+});
 window.addEventListener("hashchange", () => setActivePage(activePageFromHash()));
+loginForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  loginMessage.textContent = "";
+  try {
+    await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: loginEmail.value,
+        password: loginPassword.value
+      })
+    });
+    loginPassword.value = "";
+    showApp();
+    await loadStatus();
+    await loadHistory();
+  } catch (error) {
+    loginMessage.textContent = error.message;
+    loginMessage.classList.add("error");
+  }
+});
 
-setDefaultDates();
-setActivePage(activePageFromHash());
-loadStatus().catch(error => setMessage(error.message, true));
+initApp().catch(error => setMessage(error.message, true));

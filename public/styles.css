@@ -26,6 +26,43 @@ body {
   font-family: Inter, Segoe UI, Arial, sans-serif;
 }
 
+.loginScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  background: var(--band);
+}
+
+.loginScreen.active {
+  display: grid;
+}
+
+.loginPanel {
+  display: grid;
+  gap: 14px;
+  width: min(420px, 100%);
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.loginPanel h1 {
+  margin-bottom: 8px;
+}
+
+.loginMark {
+  margin-bottom: 4px;
+}
+
+.appFrame.locked {
+  display: none;
+}
+
 .appFrame {
   display: grid;
   grid-template-columns: 84px 1fr;
@@ -509,6 +546,17 @@ th {
 
 tbody tr:hover {
   background: #fbfcfe;
+}
+
+.groupRow td {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
+.subtotalRow td {
+  background: var(--surface-soft);
+  font-weight: 800;
 }
 
 tfoot td {

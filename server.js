@@ -6,8 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "public");
-const dataDir = path.join(__dirname, "data");
+const dataDir = process.env.DATA_DIR || path.join(__dirname, "data");
 const tokenPath = path.join(dataDir, "xero-token.json");
+const returnsPath = path.join(dataDir, "returns-history.json");
+const sessionsPath = path.join(dataDir, "sessions.json");
 const mappingPath = path.join(__dirname, "config", "vat-mapping.json");
 
 const port = Number(process.env.PORT || 3000);
@@ -15,6 +17,8 @@ const xeroClientId = process.env.XERO_CLIENT_ID || "";
 const xeroClientSecret = process.env.XERO_CLIENT_SECRET || "";
 const redirectUri = process.env.XERO_REDIRECT_URI || `http://localhost:${port}/auth/callback`;
 const sessionSecret = process.env.SESSION_SECRET || "dev-session-secret-change-me";
+const appUserName = process.env.APP_USER_NAME || process.env.APP_USER_EMAIL || "";
+const appUserPassword = process.env.APP_USER_PASSWORD || "";
 
 const scopes = [
   "offline_access",
@@ -44,7 +48,7 @@ function readBody(req) {
     let body = "";
     req.on("data", chunk => {
       body += chunk;
-      if (body.length > 1_000_000) {
+      if (body.length > 10_000_000) {
         reject(new Error("Request body too large"));
         req.destroy();
       }
@@ -91,6 +95,237 @@ async function readJson(file, fallback = null) {
 async function writeJson(file, payload) {
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, JSON.stringify(payload, null, 2));
+}
+
+function clearSessionCookie(res) {
+  res.setHeader("set-cookie", "sg_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0");
+}
+
+async function readSessions() {
+  return readJson(sessionsPath, []);
+}
+
+async function createUserSession(email) {
+  const sessions = await readSessions();
+  const session = {
+    id: crypto.randomUUID(),
+    email,
+    createdAt: new Date().toISOString()
+  };
+  sessions.unshift(session);
+  await writeJson(sessionsPath, sessions.slice(0, 100));
+  return session;
+}
+
+async function getAuthenticatedUser(req) {
+  const sessionId = getSessionId(req);
+  if (!sessionId) return null;
+  const sessions = await readSessions();
+  const session = sessions.find(item => item.id === sessionId);
+  return session ? { email: session.email } : null;
+}
+
+async function deleteUserSession(req) {
+  const sessionId = getSessionId(req);
+  if (!sessionId) return;
+  const sessions = await readSessions();
+  await writeJson(sessionsPath, sessions.filter(item => item.id !== sessionId));
+}
+
+function requireLoginConfig() {
+  if (!appUserName || !appUserPassword) {
+    const error = new Error("App login is not configured. Set APP_USER_NAME and APP_USER_PASSWORD.");
+    error.status = 503;
+    throw error;
+  }
+}
+
+function constantTimeEqual(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+async function assertAuthenticated(req) {
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    const error = new Error("Login required.");
+    error.status = 401;
+    throw error;
+  }
+  return user;
+}
+
+async function readReturnHistory() {
+  return readJson(returnsPath, []);
+}
+
+function returnSummary(record) {
+  return {
+    id: record.id,
+    status: record.status,
+    returnKind: record.returnKind,
+    tenantId: record.tenantId,
+    tenantName: record.tenantName,
+    period: record.period,
+    savedAt: record.savedAt,
+    counts: record.returnData?.counts || {},
+    vatTotals: record.returnData?.vat?.totals || {},
+    icpTotal: record.returnData?.icp?.total || 0,
+    icpDifference: record.returnData?.icp?.reconciliationDifference || 0
+  };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function moneyCell(value) {
+  return Number(value || 0).toFixed(2);
+}
+
+function tableRows(rows, columns) {
+  return rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row[column] ?? "")}</td>`).join("")}</tr>`).join("");
+}
+
+function groupedTransactionRows(transactions) {
+  const groups = new Map();
+  for (const row of transactions || []) {
+    const key = `${row.vatBox || "unmapped"}|${row.vatCategory || "Unmapped"}`;
+    const group = groups.get(key) || {
+      vatBox: row.vatBox || "unmapped",
+      vatCategory: row.vatCategory || "Unmapped",
+      rows: [],
+      net: 0,
+      tax: 0,
+      gross: 0
+    };
+    group.rows.push(row);
+    group.net += Number(row.net || 0);
+    group.tax += Number(row.tax || 0);
+    group.gross += Number(row.gross || 0);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].map(group => `
+    <tr class="group"><td colspan="12">${escapeHtml(group.vatBox)} - ${escapeHtml(group.vatCategory)}</td></tr>
+    ${group.rows.map(row => `
+      <tr>
+        <td>${escapeHtml(row.vatBox)}</td>
+        <td>${escapeHtml(row.vatCategory)}</td>
+        <td>${escapeHtml(row.date)}</td>
+        <td>${escapeHtml(row.source)}</td>
+        <td>${escapeHtml(row.sourceType)}</td>
+        <td>${escapeHtml(row.contact)}</td>
+        <td>${escapeHtml(row.reference)}</td>
+        <td>${escapeHtml(row.account)}</td>
+        <td>${escapeHtml(row.taxName)}</td>
+        <td class="num">${moneyCell(row.net)}</td>
+        <td class="num">${moneyCell(row.tax)}</td>
+        <td class="num">${moneyCell(row.gross)}</td>
+      </tr>
+    `).join("")}
+    <tr class="subtotal">
+      <td colspan="9">Subtotal</td>
+      <td class="num">${moneyCell(group.net)}</td>
+      <td class="num">${moneyCell(group.tax)}</td>
+      <td class="num">${moneyCell(group.gross)}</td>
+    </tr>
+  `).join("");
+}
+
+function buildExcelReport(returnData) {
+  const period = returnData.period || {};
+  const vatRows = (returnData.vat?.rows || []).map(row => ({
+    box: row.box,
+    description: row.description,
+    net: moneyCell(row.net),
+    vat: moneyCell(row.vat),
+    transactionCount: row.transactionCount
+  }));
+  const icpRows = (returnData.icp?.rows || []).map(row => ({
+    customer: row.customer,
+    vatNumber: row.vatNumber,
+    country: row.country,
+    goods: moneyCell(row.goods),
+    notes: (row.notes || []).join(", ")
+  }));
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; }
+    table { border-collapse: collapse; margin-bottom: 28px; width: 100%; }
+    th, td { border: 1px solid #cfd7e2; padding: 6px 8px; font-size: 12px; }
+    th { background: #eef3f7; text-align: left; }
+    .num { text-align: right; }
+    .group td { background: #dff5f1; font-weight: bold; }
+    .subtotal td { background: #f3f7f9; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Stargrow VAT Report</h1>
+  <p>Period: ${escapeHtml(period.fromDate)} to ${escapeHtml(period.toDate)}</p>
+  <h2>VAT Boxes</h2>
+  <table>
+    <thead><tr><th>Box</th><th>Description</th><th>Net</th><th>VAT</th><th>Lines</th></tr></thead>
+    <tbody>${tableRows(vatRows, ["box", "description", "net", "vat", "transactionCount"])}</tbody>
+  </table>
+  <h2>Transactions by VAT Category</h2>
+  <table>
+    <thead>
+      <tr><th>VAT box</th><th>VAT category</th><th>Date</th><th>Source</th><th>Type</th><th>Contact</th><th>Reference</th><th>Account</th><th>Tax rate</th><th>Net</th><th>Tax</th><th>Gross</th></tr>
+    </thead>
+    <tbody>${groupedTransactionRows(returnData.transactions || [])}</tbody>
+  </table>
+  <h2>ICP</h2>
+  <table>
+    <thead><tr><th>Customer</th><th>VAT number</th><th>Country</th><th>Goods</th><th>Notes</th></tr></thead>
+    <tbody>${tableRows(icpRows, ["customer", "vatNumber", "country", "goods", "notes"])}</tbody>
+  </table>
+</body>
+</html>`;
+}
+
+function sendExcel(res, filename, html) {
+  res.writeHead(200, {
+    "content-type": "application/vnd.ms-excel; charset=utf-8",
+    "content-disposition": `attachment; filename="${filename}"`,
+    "cache-control": "no-store"
+  });
+  res.end(html);
+}
+
+async function saveReturnRecord(payload) {
+  if (!payload?.returnData?.vat?.rows || !payload?.returnData?.transactions) {
+    const error = new Error("A fetched return preview is required before saving.");
+    error.status = 400;
+    throw error;
+  }
+
+  const history = await readReturnHistory();
+  const record = {
+    id: crypto.randomUUID(),
+    savedAt: new Date().toISOString(),
+    status: payload.status || "Saved as draft",
+    returnKind: payload.returnKind || "VAT",
+    tenantId: payload.tenantId || "",
+    tenantName: payload.tenantName || payload.tenantId || "",
+    period: payload.returnData.period || { fromDate: payload.fromDate, toDate: payload.toDate },
+    returnData: payload.returnData
+  };
+
+  history.unshift(record);
+  await writeJson(returnsPath, history);
+  return record;
 }
 
 function base64Url(buffer) {
@@ -246,13 +481,29 @@ function matchesMapping(line, box) {
   ].some(term => haystack.includes(String(term).toLowerCase()));
 }
 
+function findVatCategory(line, mapping) {
+  const box = mapping.vatBoxes.find(item => matchesMapping(line, item));
+  if (!box) {
+    return {
+      vatBox: "unmapped",
+      vatCategory: "Unmapped",
+      vatMode: "none"
+    };
+  }
+  return {
+    vatBox: box.box,
+    vatCategory: box.description,
+    vatMode: box.vatMode
+  };
+}
+
 function roundDown(value) {
   return value < 0 ? Math.ceil(value) : Math.floor(value);
 }
 
 function calculateVat(lines, mapping) {
   const rows = mapping.vatBoxes.map(box => {
-    const matched = lines.filter(line => matchesMapping(line, box));
+    const matched = lines.filter(line => line.vatBox === box.box);
     const net = matched.reduce((sum, line) => sum + line.net, 0);
     const xeroTax = matched.reduce((sum, line) => sum + line.tax, 0);
     let vat = xeroTax;
@@ -325,6 +576,9 @@ async function buildPreview(tenantId, fromDate, toDate) {
   ].map(line => ({
     ...line,
     taxName: taxRateByType.get(line.taxType) || line.taxType
+  })).map(line => ({
+    ...line,
+    ...findVatCategory(line, mapping)
   }));
 
   const vat = calculateVat(lines, mapping);
@@ -351,6 +605,8 @@ async function buildPreview(tenantId, fromDate, toDate) {
         reference: line.reference,
         account: line.account,
         taxName: line.taxName,
+        vatBox: line.vatBox,
+        vatCategory: line.vatCategory,
         net: Number(line.net.toFixed(2)),
         tax: Number(line.tax.toFixed(2)),
         gross: Number(line.gross.toFixed(2))
@@ -409,7 +665,40 @@ async function router(req, res) {
     return;
   }
 
+  if (url.pathname === "/api/me") {
+    const user = await getAuthenticatedUser(req);
+    sendJson(res, 200, {
+      authenticated: Boolean(user),
+      username: user?.email || "",
+      loginConfigured: Boolean(appUserName && appUserPassword)
+    });
+    return;
+  }
+
+  if (url.pathname === "/auth/login" && req.method === "POST") {
+    requireLoginConfig();
+    const body = JSON.parse(await readBody(req) || "{}");
+    const emailOk = constantTimeEqual(String(body.email || "").toLowerCase(), appUserName.toLowerCase());
+    const passwordOk = constantTimeEqual(body.password || "", appUserPassword);
+    if (!emailOk || !passwordOk) {
+      sendJson(res, 401, { error: "Invalid email or password." });
+      return;
+    }
+    const session = await createUserSession(appUserName);
+    setSessionCookie(res, session.id);
+    sendJson(res, 200, { authenticated: true, username: appUserName });
+    return;
+  }
+
+  if (url.pathname === "/auth/logout") {
+    await deleteUserSession(req);
+    clearSessionCookie(res);
+    sendRedirect(res, "/");
+    return;
+  }
+
   if (url.pathname === "/auth/xero") {
+    await assertAuthenticated(req);
     requireXeroConfig();
     const verifier = base64Url(crypto.randomBytes(32));
     const state = crypto.randomUUID();
@@ -446,18 +735,78 @@ async function router(req, res) {
     return;
   }
 
-  if (url.pathname === "/auth/logout") {
+  if (url.pathname === "/auth/disconnect-xero") {
+    await assertAuthenticated(req);
     await fs.rm(tokenPath, { force: true });
     sendRedirect(res, "/");
     return;
   }
 
   if (url.pathname === "/api/tenants") {
+    await assertAuthenticated(req);
     sendJson(res, 200, { tenants: await getTenants() });
     return;
   }
 
+  if (url.pathname === "/api/returns" && req.method === "GET") {
+    await assertAuthenticated(req);
+    const history = await readReturnHistory();
+    sendJson(res, 200, { returns: history.map(returnSummary) });
+    return;
+  }
+
+  if (url.pathname === "/api/returns" && req.method === "POST") {
+    await assertAuthenticated(req);
+    const body = JSON.parse(await readBody(req) || "{}");
+    const record = await saveReturnRecord(body);
+    sendJson(res, 201, { return: returnSummary(record), id: record.id });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/returns/") && !url.pathname.endsWith("/export") && req.method === "GET") {
+    await assertAuthenticated(req);
+    const id = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const history = await readReturnHistory();
+    const record = history.find(item => item.id === id);
+    if (!record) {
+      sendJson(res, 404, { error: "Saved return was not found." });
+      return;
+    }
+    sendJson(res, 200, { return: record });
+    return;
+  }
+
+  if (url.pathname === "/api/export-excel" && req.method === "POST") {
+    await assertAuthenticated(req);
+    const body = JSON.parse(await readBody(req) || "{}");
+    if (!body.returnData?.vat?.rows || !body.returnData?.transactions) {
+      sendJson(res, 400, { error: "A fetched or saved return is required before export." });
+      return;
+    }
+    const period = body.returnData.period || {};
+    const filename = `stargrow-vat-${period.fromDate || "from"}-${period.toDate || "to"}.xls`;
+    sendExcel(res, filename, buildExcelReport(body.returnData));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/returns/") && url.pathname.endsWith("/export") && req.method === "GET") {
+    await assertAuthenticated(req);
+    const parts = url.pathname.split("/");
+    const id = decodeURIComponent(parts[3] || "");
+    const history = await readReturnHistory();
+    const record = history.find(item => item.id === id);
+    if (!record) {
+      sendJson(res, 404, { error: "Saved return was not found." });
+      return;
+    }
+    const period = record.period || {};
+    const filename = `stargrow-vat-${period.fromDate || "from"}-${period.toDate || "to"}.xls`;
+    sendExcel(res, filename, buildExcelReport(record.returnData));
+    return;
+  }
+
   if (url.pathname === "/api/preview" && req.method === "POST") {
+    await assertAuthenticated(req);
     const body = JSON.parse(await readBody(req) || "{}");
     if (!body.tenantId || !body.fromDate || !body.toDate) {
       sendJson(res, 400, { error: "tenantId, fromDate and toDate are required." });

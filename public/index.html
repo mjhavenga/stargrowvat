@@ -7,6 +7,24 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
+    <section id="loginScreen" class="loginScreen">
+      <form id="loginForm" class="loginPanel">
+        <div class="brandMark loginMark">SG</div>
+        <p class="eyebrow">Stargrow Europe</p>
+        <h1>Sign in</h1>
+        <label>
+          Username
+          <input id="loginEmail" type="text" autocomplete="username" required>
+        </label>
+        <label>
+          Password
+          <input id="loginPassword" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="button primary" type="submit">Sign in</button>
+        <p id="loginMessage" class="message"></p>
+      </form>
+    </section>
+
     <div class="appFrame">
       <aside class="sidebar">
         <div class="brandMark">SG</div>
@@ -14,6 +32,7 @@
           <a class="navItem active" href="#vat-recon" data-page-link="vat-recon">VAT</a>
           <a class="navItem" href="#transactions" data-page-link="transactions">Lines</a>
           <a class="navItem" href="#icp" data-page-link="icp">ICP</a>
+          <a class="navItem" href="#history" data-page-link="history">History</a>
         </nav>
       </aside>
 
@@ -27,6 +46,7 @@
           <div class="headerActions">
             <span id="connectionBadge" class="statusBadge neutral">Checking Xero</span>
             <a id="connectLink" class="button primary" href="/auth/xero">Connect Xero</a>
+            <a class="button secondaryButton" href="/auth/logout">Logout</a>
           </div>
         </header>
 
@@ -62,7 +82,7 @@
             <strong id="returnStatus">Ready to fetch</strong>
           </div>
           <div class="workbenchActions">
-            <button class="iconButton" title="Download workbook" type="button" disabled>DL</button>
+            <button class="iconButton" title="Download workbook" type="button" id="exportButton" disabled>DL</button>
             <button class="iconButton" title="Refresh" type="button" id="refreshButton">R</button>
           </div>
         </section>
@@ -90,6 +110,7 @@
           <a class="tab active" href="#vat-recon" data-page-link="vat-recon">VAT Recon</a>
           <a class="tab" href="#transactions" data-page-link="transactions">Transactions</a>
           <a class="tab" href="#icp" data-page-link="icp">ICP</a>
+          <a class="tab" href="#history" data-page-link="history">History</a>
         </section>
 
         <section id="vat-recon" class="pageView active" data-page="vat-recon">
@@ -161,6 +182,8 @@
               <table class="sheetTable">
                 <thead>
                   <tr>
+                    <th>VAT box</th>
+                    <th>VAT category</th>
                     <th>Date</th>
                     <th>Source</th>
                     <th>Type</th>
@@ -174,7 +197,7 @@
                   </tr>
                 </thead>
                 <tbody id="transactionRows">
-                  <tr class="emptyRow"><td colspan="10">No Xero transactions loaded yet.</td></tr>
+                  <tr class="emptyRow"><td colspan="12">No Xero transactions loaded yet.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -250,6 +273,45 @@
             <ul id="exceptions" class="checks">
               <li class="emptyCheck">No checks have run yet.</li>
             </ul>
+          </div>
+        </section>
+
+        <section id="history" class="pageView" data-page="history">
+          <div class="pageHeader">
+            <div>
+              <p class="panelKicker">Filed returns</p>
+              <h2>VAT return history</h2>
+            </div>
+            <button id="refreshHistoryButton" class="button secondaryButton" type="button">Refresh history</button>
+          </div>
+
+          <div class="panel">
+            <div class="panelHeader">
+              <div>
+                <p class="panelKicker">Saved snapshots</p>
+                <h2>Draft and filed returns</h2>
+              </div>
+              <span id="historyCount" class="panelMeta">0 returns</span>
+            </div>
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Saved</th>
+                    <th>Period</th>
+                    <th>Kind</th>
+                    <th>Status</th>
+                    <th>Organisation</th>
+                    <th class="num">Lines</th>
+                    <th class="num">VAT</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="historyRows">
+                  <tr class="emptyRow"><td colspan="8">No saved returns yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </main>
