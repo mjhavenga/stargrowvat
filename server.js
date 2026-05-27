@@ -219,9 +219,9 @@ function groupedTransactionRows(transactions) {
       <tr>
         <td>${escapeHtml(row.vatBox)}</td>
         <td>${escapeHtml(row.vatCategory)}</td>
+        <td>${row.sourceUrl ? `<a href="${escapeHtml(row.sourceUrl)}">Open in Xero</a>` : ""}</td>
         <td>${escapeHtml(row.date)}</td>
         <td>${escapeHtml(row.source)}</td>
-        <td>${escapeHtml(row.sourceType)}</td>
         <td>${escapeHtml(row.contact)}</td>
         <td>${escapeHtml(row.reference)}</td>
         <td>${escapeHtml(row.account)}</td>
@@ -272,7 +272,7 @@ function buildExcelReport(returnData) {
   </style>
 </head>
 <body>
-  <h1>Stargrow VAT Report</h1>
+  <h1>Xero Dutch VAT Template</h1>
   <p>Period: ${escapeHtml(period.fromDate)} to ${escapeHtml(period.toDate)}</p>
   <h2>VAT Boxes</h2>
   <table>
@@ -282,7 +282,7 @@ function buildExcelReport(returnData) {
   <h2>Transactions by VAT Category</h2>
   <table>
     <thead>
-      <tr><th>VAT box</th><th>VAT category</th><th>Date</th><th>Source</th><th>Type</th><th>Contact</th><th>Reference</th><th>Account</th><th>Tax rate</th><th>Net</th><th>Tax</th><th>Gross</th></tr>
+      <tr><th>VAT box</th><th>VAT category</th><th>Link</th><th>Date</th><th>Source</th><th>Contact</th><th>Reference</th><th>Account</th><th>Tax rate</th><th>Net</th><th>Tax</th><th>Gross</th></tr>
     </thead>
     <tbody>${groupedTransactionRows(returnData.transactions || [])}</tbody>
   </table>
@@ -438,6 +438,27 @@ function sourceLabel(source) {
   return labels[source.Type] || source.Type || "Xero Transaction";
 }
 
+function sourceRedirectPath(source) {
+  const id = source.InvoiceID || source.CreditNoteID || "";
+  if (!id) return "";
+  const paths = {
+    ACCREC: `/AccountsReceivable/View.aspx?InvoiceID=${id}`,
+    ACCPAY: `/AccountsPayable/Edit.aspx?InvoiceID=${id}`,
+    ACCRECCREDIT: `/AccountsReceivable/ViewCreditNote.aspx?creditNoteID=${id}`,
+    ACCPAYCREDIT: `/AccountsPayable/ViewCreditNote.aspx?creditNoteID=${id}`
+  };
+  return paths[source.Type] || "";
+}
+
+function xeroSourceUrl(source, orgShortCode) {
+  const redirectPath = sourceRedirectPath(source);
+  if (!redirectPath) return "";
+  const url = new URL("https://go.xero.com/organisationlogin/default.aspx");
+  if (orgShortCode) url.searchParams.set("shortcode", orgShortCode);
+  url.searchParams.set("redirecturl", redirectPath);
+  return url.toString();
+}
+
 function amountSign(source) {
   const signs = {
     ACCREC: 1,
@@ -448,9 +469,10 @@ function amountSign(source) {
   return signs[source.Type] || 1;
 }
 
-function normaliseLine(source) {
+function normaliseLine(source, orgShortCode = "") {
   const signValue = amountSign(source);
   const typeLabel = sourceLabel(source);
+  const sourceUrl = xeroSourceUrl(source, orgShortCode);
   const date = source.DateString || source.Date || source.FullyPaidOnDate || "";
   const contact = source.Contact?.Name || "";
   return (source.LineItems || []).map(line => {
@@ -460,6 +482,7 @@ function normaliseLine(source) {
       date: String(date).slice(0, 10),
       source: typeLabel,
       sourceType: source.Type || "",
+      sourceUrl,
       contact,
       reference: source.InvoiceNumber || source.CreditNoteNumber || source.BankTransactionID || source.Reference || "",
       details: [contact, line.Description].filter(Boolean).join(" - "),
@@ -562,17 +585,19 @@ function calculateIcp(lines, contacts, mapping) {
 async function buildPreview(tenantId, fromDate, toDate) {
   const mapping = await readJson(mappingPath);
   const where = xeroDateFilter(fromDate, toDate);
-  const [invoices, creditNotes, contacts, taxRates] = await Promise.all([
+  const [invoices, creditNotes, contacts, taxRates, organisations] = await Promise.all([
     listPaged(tenantId, "Invoices", "Invoices", { where }),
     listPaged(tenantId, "CreditNotes", "CreditNotes", { where }),
     listPaged(tenantId, "Contacts", "Contacts", { includeArchived: false }),
-    xeroFetch(tenantId, "TaxRates")
+    xeroFetch(tenantId, "TaxRates"),
+    xeroFetch(tenantId, "Organisation")
   ]);
 
   const taxRateByType = new Map((taxRates.TaxRates || []).map(rate => [rate.TaxType, rate.Name]));
+  const orgShortCode = organisations.Organisations?.[0]?.ShortCode || "";
   const lines = [
-    ...invoices.flatMap(invoice => normaliseLine(invoice)),
-    ...creditNotes.flatMap(note => normaliseLine(note))
+    ...invoices.flatMap(invoice => normaliseLine(invoice, orgShortCode)),
+    ...creditNotes.flatMap(note => normaliseLine(note, orgShortCode))
   ].map(line => ({
     ...line,
     taxName: taxRateByType.get(line.taxType) || line.taxType
@@ -600,7 +625,7 @@ async function buildPreview(tenantId, fromDate, toDate) {
       .map(line => ({
         date: line.date,
         source: line.source,
-        sourceType: line.sourceType,
+        sourceUrl: line.sourceUrl,
         contact: line.contact,
         reference: line.reference,
         account: line.account,

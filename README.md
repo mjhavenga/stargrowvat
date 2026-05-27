@@ -1,4 +1,4 @@
-# Stargrow VAT
+# Xero Dutch VAT Template
 
 Internal VAT and ICP reporting app for Stargrow Europe. The app connects to Xero, pulls accounting data for a selected VAT period, and rebuilds the VAT/ICP summaries that are currently prepared in the Excel template.
 

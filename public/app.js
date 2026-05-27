@@ -271,9 +271,9 @@ function renderTransactionSheet(transactions) {
       <tr>
         <td>${escapeHtml(row.vatBox)}</td>
         <td>${escapeHtml(row.vatCategory)}</td>
+        <td>${row.sourceUrl ? `<a href="${escapeHtml(row.sourceUrl)}" target="_blank" rel="noopener">Open</a>` : "-"}</td>
         <td>${escapeHtml(row.date)}</td>
         <td>${escapeHtml(row.source)}</td>
-        <td>${escapeHtml(row.sourceType)}</td>
         <td>${escapeHtml(row.contact)}</td>
         <td>${escapeHtml(row.reference)}</td>
         <td>${escapeHtml(row.account)}</td>
