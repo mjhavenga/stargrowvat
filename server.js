@@ -323,9 +323,23 @@ async function buildPreview(tenantId, fromDate, toDate) {
       contacts: contacts.length,
       lines: lines.length
     },
+    transactions: lines
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.reference).localeCompare(String(b.reference)))
+      .map(line => ({
+        date: line.date,
+        source: line.source,
+        contact: line.contact,
+        reference: line.reference,
+        account: line.account,
+        taxName: line.taxName,
+        net: Number(line.net.toFixed(2)),
+        tax: Number(line.tax.toFixed(2)),
+        gross: Number(line.gross.toFixed(2))
+      })),
     vat,
     icp: {
       ...icp,
+      vat3b: Number(vat3b.toFixed(2)),
       reconciliationDifference: Number((icp.total - vat3b).toFixed(2))
     },
     exceptions: icp.rows.flatMap(row => row.notes.map(note => ({ customer: row.customer, note })))

@@ -19,6 +19,21 @@ const periodLabel = document.querySelector("#periodLabel");
 const refreshButton = document.querySelector("#refreshButton");
 const vatNetTotal = document.querySelector("#vatNetTotal");
 const vatVatTotal = document.querySelector("#vatVatTotal");
+const transactionRows = document.querySelector("#transactionRows");
+const transactionSheetCount = document.querySelector("#transactionSheetCount");
+const vatReturnBadge = document.querySelector("#vatReturnBadge");
+const saveDraftButton = document.querySelector("#saveDraftButton");
+const filedButton = document.querySelector("#filedButton");
+const icpReturnBadge = document.querySelector("#icpReturnBadge");
+const icpDraftButton = document.querySelector("#icpDraftButton");
+const icpFiledButton = document.querySelector("#icpFiledButton");
+const icpTotalValue = document.querySelector("#icpTotalValue");
+const vat3bValue = document.querySelector("#vat3bValue");
+const icpReconDiffValue = document.querySelector("#icpReconDiffValue");
+const icpReconStatus = document.querySelector("#icpReconStatus");
+const pageLinks = document.querySelectorAll("[data-page-link]");
+const pageViews = document.querySelectorAll("[data-page]");
+const validPages = new Set(["vat-recon", "transactions", "icp"]);
 
 function money(value) {
   return new Intl.NumberFormat("en-ZA", {
@@ -77,6 +92,51 @@ function setDefaultDates() {
 
 function updatePeriodLabel() {
   periodLabel.textContent = `${fromDate.value || "-"} to ${toDate.value || "-"}`;
+  loadVatReturnMark();
+  loadIcpReturnMark();
+}
+
+function activePageFromHash() {
+  const page = window.location.hash.replace("#", "");
+  return validPages.has(page) ? page : "vat-recon";
+}
+
+function setActivePage(page) {
+  pageLinks.forEach(link => {
+    link.classList.toggle("active", link.dataset.pageLink === page);
+  });
+  pageViews.forEach(view => {
+    view.classList.toggle("active", view.dataset.page === page);
+  });
+}
+
+function vatReturnMarkKey() {
+  return `stargrowvat:${tenantSelect.value || "no-tenant"}:${fromDate.value || "from"}:${toDate.value || "to"}:vat-status`;
+}
+
+function setVatReturnMark(status) {
+  window.localStorage.setItem(vatReturnMarkKey(), status);
+  vatReturnBadge.textContent = status;
+  returnStatus.textContent = status;
+}
+
+function loadVatReturnMark() {
+  const status = window.localStorage.getItem(vatReturnMarkKey()) || "Not marked";
+  vatReturnBadge.textContent = status;
+}
+
+function icpReturnMarkKey() {
+  return `stargrowvat:${tenantSelect.value || "no-tenant"}:${fromDate.value || "from"}:${toDate.value || "to"}:icp-status`;
+}
+
+function setIcpReturnMark(status) {
+  window.localStorage.setItem(icpReturnMarkKey(), status);
+  icpReturnBadge.textContent = status;
+}
+
+function loadIcpReturnMark() {
+  const status = window.localStorage.getItem(icpReturnMarkKey()) || "Not marked";
+  icpReturnBadge.textContent = status;
 }
 
 function renderPreview(data) {
@@ -86,7 +146,17 @@ function renderPreview(data) {
   icpDiff.textContent = money(data.icp.reconciliationDifference);
   vatNetTotal.textContent = money(data.vat.totals.net);
   vatVatTotal.textContent = money(data.vat.totals.vat);
-  returnStatus.textContent = data.exceptions.length ? "Needs review" : "Reconciled";
+  loadVatReturnMark();
+  loadIcpReturnMark();
+  returnStatus.textContent = vatReturnBadge.textContent === "Not marked"
+    ? (data.exceptions.length ? "Needs review" : "Reconciled")
+    : vatReturnBadge.textContent;
+  icpTotalValue.textContent = money(data.icp.total);
+  vat3bValue.textContent = money(data.icp.vat3b);
+  icpReconDiffValue.textContent = money(data.icp.reconciliationDifference);
+  const icpPassed = Math.abs(Number(data.icp.reconciliationDifference || 0)) < 0.01;
+  icpReconStatus.textContent = icpPassed ? "Passed" : "Review";
+  icpReconStatus.className = icpPassed ? "reconPass" : "reconReview";
 
   vatRows.innerHTML = data.vat.rows.map(row => `
     <tr>
@@ -112,6 +182,23 @@ function renderPreview(data) {
     ? data.exceptions.map(item => `<li><strong>${escapeHtml(item.customer)}</strong>: ${escapeHtml(item.note)}</li>`).join("")
     : "<li class=\"emptyCheck\">No ICP exceptions detected.</li>";
   checkCount.textContent = `${data.exceptions.length} open`;
+
+  transactionSheetCount.textContent = `${data.transactions.length} lines`;
+  transactionRows.innerHTML = data.transactions.length
+    ? data.transactions.map(row => `
+      <tr>
+        <td>${escapeHtml(row.date)}</td>
+        <td>${escapeHtml(row.source)}</td>
+        <td>${escapeHtml(row.contact)}</td>
+        <td>${escapeHtml(row.reference)}</td>
+        <td>${escapeHtml(row.account)}</td>
+        <td>${escapeHtml(row.taxName)}</td>
+        <td class="num">${money(row.net)}</td>
+        <td class="num">${money(row.tax)}</td>
+        <td class="num">${money(row.gross)}</td>
+      </tr>
+    `).join("")
+    : "<tr class=\"emptyRow\"><td colspan=\"9\">No Xero transactions loaded yet.</td></tr>";
 }
 
 async function loadStatus() {
@@ -163,6 +250,14 @@ previewButton.addEventListener("click", async () => {
 refreshButton.addEventListener("click", () => previewButton.click());
 fromDate.addEventListener("change", updatePeriodLabel);
 toDate.addEventListener("change", updatePeriodLabel);
+tenantSelect.addEventListener("change", loadVatReturnMark);
+tenantSelect.addEventListener("change", loadIcpReturnMark);
+saveDraftButton.addEventListener("click", () => setVatReturnMark("Saved as draft"));
+filedButton.addEventListener("click", () => setVatReturnMark("Finalised and filed"));
+icpDraftButton.addEventListener("click", () => setIcpReturnMark("Saved as draft"));
+icpFiledButton.addEventListener("click", () => setIcpReturnMark("Finalised and filed"));
+window.addEventListener("hashchange", () => setActivePage(activePageFromHash()));
 
 setDefaultDates();
+setActivePage(activePageFromHash());
 loadStatus().catch(error => setMessage(error.message, true));

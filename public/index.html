@@ -11,9 +11,9 @@
       <aside class="sidebar">
         <div class="brandMark">SG</div>
         <nav class="nav">
-          <a class="navItem active" href="#vat">VAT</a>
-          <a class="navItem" href="#icp">ICP</a>
-          <a class="navItem" href="#checks">Checks</a>
+          <a class="navItem active" href="#vat-recon" data-page-link="vat-recon">VAT</a>
+          <a class="navItem" href="#transactions" data-page-link="transactions">Lines</a>
+          <a class="navItem" href="#icp" data-page-link="icp">ICP</a>
         </nav>
       </aside>
 
@@ -62,8 +62,8 @@
             <strong id="returnStatus">Ready to fetch</strong>
           </div>
           <div class="workbenchActions">
-            <button class="iconButton" title="Download workbook" type="button" disabled>↓</button>
-            <button class="iconButton" title="Refresh" type="button" id="refreshButton">↻</button>
+            <button class="iconButton" title="Download workbook" type="button" disabled>DL</button>
+            <button class="iconButton" title="Refresh" type="button" id="refreshButton">R</button>
           </div>
         </section>
 
@@ -87,13 +87,25 @@
         </section>
 
         <section class="tabs" aria-label="Return views">
-          <a class="tab active" href="#vat">VAT Return</a>
-          <a class="tab" href="#icp">ICP Listing</a>
-          <a class="tab" href="#checks">Exceptions</a>
+          <a class="tab active" href="#vat-recon" data-page-link="vat-recon">VAT Recon</a>
+          <a class="tab" href="#transactions" data-page-link="transactions">Transactions</a>
+          <a class="tab" href="#icp" data-page-link="icp">ICP</a>
         </section>
 
-        <section class="grid">
-          <div id="vat" class="panel">
+        <section id="vat-recon" class="pageView active" data-page="vat-recon">
+          <div class="pageHeader">
+            <div>
+              <p class="panelKicker">VAT recon</p>
+              <h2>VAT return reconciliation</h2>
+            </div>
+            <div class="pageActions">
+              <span id="vatReturnBadge" class="panelMeta">Not marked</span>
+              <button id="saveDraftButton" class="button secondaryButton" type="button">Save as draft</button>
+              <button id="filedButton" class="button secondaryButton" type="button">Finalise and filed</button>
+            </div>
+          </div>
+
+          <div class="panel">
             <div class="panelHeader">
               <div>
                 <p class="panelKicker">Dutch VAT return</p>
@@ -126,8 +138,81 @@
               </table>
             </div>
           </div>
+        </section>
 
-          <div id="icp" class="panel">
+        <section id="transactions" class="pageView" data-page="transactions">
+          <div class="pageHeader">
+            <div>
+              <p class="panelKicker">Source sheet</p>
+              <h2>Xero transactions</h2>
+            </div>
+            <span id="transactionSheetCount" class="panelMeta">0 lines</span>
+          </div>
+
+          <div class="panel">
+            <div class="panelHeader">
+              <div>
+                <p class="panelKicker">Pulled from Xero</p>
+                <h2>Transaction lines</h2>
+              </div>
+              <span class="panelMeta">Invoice and credit note lines</span>
+            </div>
+            <div class="tableWrap sheetWrap">
+              <table class="sheetTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Source</th>
+                    <th>Contact</th>
+                    <th>Reference</th>
+                    <th>Account</th>
+                    <th>Tax rate</th>
+                    <th class="num">Net</th>
+                    <th class="num">Tax</th>
+                    <th class="num">Gross</th>
+                  </tr>
+                </thead>
+                <tbody id="transactionRows">
+                  <tr class="emptyRow"><td colspan="9">No Xero transactions loaded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="icp" class="pageView" data-page="icp">
+          <div class="pageHeader">
+            <div>
+              <p class="panelKicker">ICP</p>
+              <h2>ICP customer listing</h2>
+            </div>
+            <div class="pageActions">
+              <span id="icpReturnBadge" class="panelMeta">Not marked</span>
+              <button id="icpDraftButton" class="button secondaryButton" type="button">Save as draft</button>
+              <button id="icpFiledButton" class="button secondaryButton" type="button">Finalise and filed</button>
+            </div>
+          </div>
+
+          <div class="reconStrip">
+            <article>
+              <span>ICP total</span>
+              <strong id="icpTotalValue">-</strong>
+            </article>
+            <article>
+              <span>VAT 3B</span>
+              <strong id="vat3bValue">-</strong>
+            </article>
+            <article>
+              <span>Difference</span>
+              <strong id="icpReconDiffValue">-</strong>
+            </article>
+            <article>
+              <span>3B test</span>
+              <strong id="icpReconStatus">Not run</strong>
+            </article>
+          </div>
+
+          <div class="panel">
             <div class="panelHeader">
               <div>
                 <p class="panelKicker">EU listing</p>
@@ -152,19 +237,19 @@
               </table>
             </div>
           </div>
-        </section>
 
-        <section id="checks" class="panel checksPanel">
-          <div class="panelHeader">
-            <div>
-              <p class="panelKicker">Review queue</p>
-              <h2>Checks</h2>
+          <div class="panel checksPanel">
+            <div class="panelHeader">
+              <div>
+                <p class="panelKicker">Review queue</p>
+                <h2>Checks</h2>
+              </div>
+              <span id="checkCount" class="panelMeta">0 open</span>
             </div>
-            <span id="checkCount" class="panelMeta">0 open</span>
+            <ul id="exceptions" class="checks">
+              <li class="emptyCheck">No checks have run yet.</li>
+            </ul>
           </div>
-          <ul id="exceptions" class="checks">
-            <li class="emptyCheck">No checks have run yet.</li>
-          </ul>
         </section>
       </main>
     </div>

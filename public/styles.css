@@ -185,7 +185,7 @@ input {
 }
 
 .fetchButton::before {
-  content: "↻";
+  content: "R";
   margin-right: 8px;
   font-weight: 900;
 }
@@ -206,6 +206,19 @@ input {
 .button.primary:hover {
   background: var(--accent-dark);
   border-color: var(--accent-dark);
+}
+
+.secondaryButton {
+  min-height: 36px;
+  padding: 0 12px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+.secondaryButton:hover {
+  background: #eef7f5;
+  border-color: var(--accent);
+  color: var(--accent-dark);
 }
 
 .statusBadge {
@@ -307,6 +320,7 @@ input {
 }
 
 .metrics article,
+.reconStrip article,
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -343,9 +357,77 @@ input {
   line-height: 1.1;
 }
 
+.reconStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.reconStrip article {
+  padding: 14px 16px;
+}
+
+.reconStrip span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.reconStrip strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+.reconPass {
+  color: var(--accent-dark);
+}
+
+.reconReview {
+  color: var(--danger);
+}
+
 .grid {
   grid-template-columns: 1fr 1fr;
   margin-bottom: 16px;
+}
+
+.pageView {
+  display: none;
+}
+
+.pageView.active {
+  display: grid;
+  gap: 16px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pageActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sheetWrap {
+  max-height: 62vh;
+}
+
+.sheetTable {
+  min-width: 1120px;
 }
 
 .tabs {
@@ -483,7 +565,7 @@ tfoot td {
   .topbar,
   .toolbar,
   .metrics,
-  .grid,
+  .reconStrip,
   .workbench {
     grid-template-columns: 1fr;
   }
@@ -494,6 +576,12 @@ tfoot td {
   }
 
   .headerActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pageHeader,
+  .pageActions {
     align-items: stretch;
     flex-direction: column;
   }
