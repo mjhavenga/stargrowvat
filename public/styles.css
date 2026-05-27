@@ -356,10 +356,22 @@ input {
 }
 
 .reconPass {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
   color: var(--accent-dark);
 }
 
 .reconReview {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fde8e7;
   color: var(--danger);
 }
 

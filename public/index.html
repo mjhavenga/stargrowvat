@@ -184,6 +184,7 @@
             </div>
             <div class="pageActions">
               <span id="icpReturnBadge" class="panelMeta">Not marked</span>
+              <button id="icpExportButton" class="button secondaryButton" type="button" disabled>Export Excel</button>
               <button id="icpDraftButton" class="button secondaryButton" type="button">Save as draft</button>
               <button id="icpFiledButton" class="button secondaryButton" type="button">Finalise and filed</button>
             </div>
@@ -230,6 +231,13 @@
                 <tbody id="icpRows">
                   <tr class="emptyRow"><td colspan="5">No ICP data loaded yet.</td></tr>
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3">Total ICP goods</td>
+                    <td id="icpTableTotal" class="num">-</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

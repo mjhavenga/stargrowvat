@@ -27,9 +27,11 @@ const vatReturnBadge = document.querySelector("#vatReturnBadge");
 const saveDraftButton = document.querySelector("#saveDraftButton");
 const filedButton = document.querySelector("#filedButton");
 const icpReturnBadge = document.querySelector("#icpReturnBadge");
+const icpExportButton = document.querySelector("#icpExportButton");
 const icpDraftButton = document.querySelector("#icpDraftButton");
 const icpFiledButton = document.querySelector("#icpFiledButton");
 const icpTotalValue = document.querySelector("#icpTotalValue");
+const icpTableTotal = document.querySelector("#icpTableTotal");
 const vat3bValue = document.querySelector("#vat3bValue");
 const icpReconDiffValue = document.querySelector("#icpReconDiffValue");
 const icpReconStatus = document.querySelector("#icpReconStatus");
@@ -178,6 +180,7 @@ async function saveReturnSnapshot(returnKind, status) {
     })
   });
   transactionExportButton.disabled = false;
+  icpExportButton.disabled = false;
   setMessage(`${returnKind} return ${status.toLowerCase()}.`);
   await loadHistory();
 }
@@ -185,6 +188,7 @@ async function saveReturnSnapshot(returnKind, status) {
 function renderPreview(data) {
   currentPreviewData = data;
   transactionExportButton.disabled = false;
+  icpExportButton.disabled = false;
   vatNetTotal.textContent = money(data.vat.totals.net);
   vatVatTotal.textContent = money(data.vat.totals.vat);
   loadVatReturnMark();
@@ -193,6 +197,7 @@ function renderPreview(data) {
     ? (data.exceptions.length ? "Needs review" : "Reconciled")
     : vatReturnBadge.textContent;
   icpTotalValue.textContent = money(data.icp.total);
+  icpTableTotal.textContent = money(data.icp.total);
   vat3bValue.textContent = money(data.icp.vat3b);
   icpReconDiffValue.textContent = money(data.icp.reconciliationDifference);
   const icpPassed = Math.abs(Number(data.icp.reconciliationDifference || 0)) < 0.01;
@@ -329,6 +334,7 @@ async function openSavedReturn(id) {
   const { return: record } = await api(`/api/returns/${encodeURIComponent(id)}`);
   currentPreviewData = record.returnData;
   transactionExportButton.disabled = false;
+  icpExportButton.disabled = false;
   if (record.period?.fromDate) fromDate.value = record.period.fromDate;
   if (record.period?.toDate) toDate.value = record.period.toDate;
   updatePeriodLabel();
@@ -410,6 +416,7 @@ previewButton.addEventListener("click", async () => {
 });
 
 transactionExportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
+icpExportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
 fromDate.addEventListener("change", updatePeriodLabel);
 toDate.addEventListener("change", updatePeriodLabel);
 tenantSelect.addEventListener("change", loadVatReturnMark);
