@@ -82,7 +82,7 @@
             <strong id="returnStatus">Ready to fetch</strong>
           </div>
           <div class="workbenchActions">
-            <button class="iconButton" title="Download workbook" type="button" id="exportButton" disabled>DL</button>
+            <button class="iconButton" title="Export Excel" type="button" id="exportButton" disabled>XL</button>
             <button class="iconButton" title="Refresh" type="button" id="refreshButton">R</button>
           </div>
         </section>
@@ -167,7 +167,10 @@
               <p class="panelKicker">Source sheet</p>
               <h2>Xero transactions</h2>
             </div>
-            <span id="transactionSheetCount" class="panelMeta">0 lines</span>
+            <div class="pageActions">
+              <span id="transactionSheetCount" class="panelMeta">0 lines</span>
+              <button id="transactionExportButton" class="button secondaryButton" type="button" disabled>Export Excel</button>
+            </div>
           </div>
 
           <div class="panel">

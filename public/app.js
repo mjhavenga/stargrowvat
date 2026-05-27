@@ -24,6 +24,7 @@ const returnStatus = document.querySelector("#returnStatus");
 const periodLabel = document.querySelector("#periodLabel");
 const refreshButton = document.querySelector("#refreshButton");
 const exportButton = document.querySelector("#exportButton");
+const transactionExportButton = document.querySelector("#transactionExportButton");
 const vatNetTotal = document.querySelector("#vatNetTotal");
 const vatVatTotal = document.querySelector("#vatVatTotal");
 const transactionRows = document.querySelector("#transactionRows");
@@ -183,6 +184,7 @@ async function saveReturnSnapshot(returnKind, status) {
     })
   });
   exportButton.disabled = false;
+  transactionExportButton.disabled = false;
   setMessage(`${returnKind} return ${status.toLowerCase()}.`);
   await loadHistory();
 }
@@ -190,6 +192,7 @@ async function saveReturnSnapshot(returnKind, status) {
 function renderPreview(data) {
   currentPreviewData = data;
   exportButton.disabled = false;
+  transactionExportButton.disabled = false;
   invoiceCount.textContent = data.counts.invoices;
   creditNoteCount.textContent = data.counts.creditNotes;
   lineCount.textContent = data.counts.lines;
@@ -337,6 +340,8 @@ async function loadHistory() {
 async function openSavedReturn(id) {
   const { return: record } = await api(`/api/returns/${encodeURIComponent(id)}`);
   currentPreviewData = record.returnData;
+  exportButton.disabled = false;
+  transactionExportButton.disabled = false;
   if (record.period?.fromDate) fromDate.value = record.period.fromDate;
   if (record.period?.toDate) toDate.value = record.period.toDate;
   updatePeriodLabel();
@@ -419,6 +424,7 @@ previewButton.addEventListener("click", async () => {
 
 refreshButton.addEventListener("click", () => previewButton.click());
 exportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
+transactionExportButton.addEventListener("click", () => exportCurrentReturn().catch(error => setMessage(error.message, true)));
 fromDate.addEventListener("change", updatePeriodLabel);
 toDate.addEventListener("change", updatePeriodLabel);
 tenantSelect.addEventListener("change", loadVatReturnMark);
