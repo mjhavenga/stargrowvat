@@ -242,6 +242,7 @@ function groupedTransactionRows(transactions) {
 
 function buildExcelReport(returnData) {
   const period = returnData.period || {};
+  const payable = returnData.vat?.payable || calculateVatPayable(returnData.vat?.rows || []);
   const vatRows = (returnData.vat?.rows || []).map(row => ({
     box: row.box,
     description: row.description,
@@ -278,6 +279,18 @@ function buildExcelReport(returnData) {
   <table>
     <thead><tr><th>Box</th><th>Description</th><th>Net</th><th>VAT</th><th>Lines</th></tr></thead>
     <tbody>${tableRows(vatRows, ["box", "description", "net", "vat", "transactionCount"])}</tbody>
+  </table>
+  <h2>Berekening te betalen / te ontvangen</h2>
+  <table>
+    <tbody>
+      <tr><td>BTW op binnenlandse prestaties (1a + 1b + 1c + 1d + 1e)</td><td class="num">${moneyCell(payable.domesticVat)}</td></tr>
+      <tr><td>BTW verschuldigd over import (4a + 4b)</td><td class="num">${moneyCell(payable.importVat)}</td></tr>
+      <tr class="subtotal"><td>Totaal verschuldigde BTW</td><td class="num">${moneyCell(payable.totalDue)}</td></tr>
+      <tr><td>Af: Voorbelasting (5b)</td><td class="num">${moneyCell(payable.inputTax)}</td></tr>
+      <tr class="subtotal"><td>Subtotaal (5a - 5b = 5c)</td><td class="num">${moneyCell(payable.subtotal)}</td></tr>
+      <tr><td>Af: Vermindering kleineondernemersregeling (5d)</td><td class="num">${moneyCell(payable.smallBusinessRelief)}</td></tr>
+      <tr class="subtotal"><td>TE BETALEN (+) / TE ONTVANGEN (-)</td><td class="num">${moneyCell(payable.payableReceivable)}</td></tr>
+    </tbody>
   </table>
   <h2>Transactions by VAT Category</h2>
   <table>
@@ -540,12 +553,40 @@ function calculateVat(lines, mapping) {
       transactionCount: matched.length
     };
   });
-  return {
+  const vat = {
     rows,
     totals: {
       net: Number(rows.reduce((sum, row) => sum + row.net, 0).toFixed(2)),
       vat: Number(rows.reduce((sum, row) => sum + row.vat, 0).toFixed(2))
     }
+  };
+  vat.payable = calculateVatPayable(rows);
+  return vat;
+}
+
+function sumVatRows(rows, boxes) {
+  return rows
+    .filter(row => boxes.includes(row.box))
+    .reduce((sum, row) => sum + Number(row.vat || 0), 0);
+}
+
+function calculateVatPayable(rows) {
+  const domesticVat = sumVatRows(rows, ["1a", "1b", "1d", "1d-verlegd", "1e"]);
+  const importVat = sumVatRows(rows, ["4a-high", "4a-low", "4b-high", "4b-low"]);
+  const totalDue = domesticVat + importVat;
+  const inputTax = Math.abs(sumVatRows(rows, ["5b"]));
+  const subtotal = totalDue - inputTax;
+  const smallBusinessRelief = 0;
+  const payableReceivable = subtotal - smallBusinessRelief;
+
+  return {
+    domesticVat: Number(domesticVat.toFixed(2)),
+    importVat: Number(importVat.toFixed(2)),
+    totalDue: Number(totalDue.toFixed(2)),
+    inputTax: Number(inputTax.toFixed(2)),
+    subtotal: Number(subtotal.toFixed(2)),
+    smallBusinessRelief,
+    payableReceivable: Number(payableReceivable.toFixed(2))
   };
 }
 

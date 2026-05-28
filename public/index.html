@@ -128,6 +128,52 @@
               </table>
             </div>
           </div>
+
+          <div class="panel">
+            <div class="panelHeader">
+              <div>
+                <p class="panelKicker">Calculation</p>
+                <h2>Berekening te betalen / te ontvangen</h2>
+              </div>
+              <span id="vatPayableBadge" class="panelMeta">Not calculated</span>
+            </div>
+            <div class="tableWrap">
+              <table>
+                <tbody>
+                  <tr>
+                    <td>BTW op binnenlandse prestaties (1a + 1b + 1c + 1d + 1e)</td>
+                    <td id="vatDomestic" class="num">-</td>
+                  </tr>
+                  <tr>
+                    <td>BTW verschuldigd over import (4a + 4b)</td>
+                    <td id="vatImport" class="num">-</td>
+                  </tr>
+                  <tr class="subtotalRow">
+                    <td>Totaal verschuldigde BTW</td>
+                    <td id="vatTotalDue" class="num">-</td>
+                  </tr>
+                  <tr>
+                    <td>Af: Voorbelasting (5b)</td>
+                    <td id="vatInputTax" class="num">-</td>
+                  </tr>
+                  <tr class="subtotalRow">
+                    <td>Subtotaal (5a - 5b = 5c)</td>
+                    <td id="vatSubtotal" class="num">-</td>
+                  </tr>
+                  <tr>
+                    <td>Af: Vermindering kleineondernemersregeling (5d)</td>
+                    <td id="vatSmallBusiness" class="num">-</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>TE BETALEN (+) / TE ONTVANGEN (-)</td>
+                    <td id="vatPayableReceivable" class="num">-</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
         </section>
 
         <section id="transactions" class="pageView" data-page="transactions">

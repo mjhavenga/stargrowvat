@@ -21,6 +21,14 @@ const periodLabel = document.querySelector("#periodLabel");
 const transactionExportButton = document.querySelector("#transactionExportButton");
 const vatNetTotal = document.querySelector("#vatNetTotal");
 const vatVatTotal = document.querySelector("#vatVatTotal");
+const vatPayableBadge = document.querySelector("#vatPayableBadge");
+const vatDomestic = document.querySelector("#vatDomestic");
+const vatImport = document.querySelector("#vatImport");
+const vatTotalDue = document.querySelector("#vatTotalDue");
+const vatInputTax = document.querySelector("#vatInputTax");
+const vatSubtotal = document.querySelector("#vatSubtotal");
+const vatSmallBusiness = document.querySelector("#vatSmallBusiness");
+const vatPayableReceivable = document.querySelector("#vatPayableReceivable");
 const transactionRows = document.querySelector("#transactionRows");
 const transactionSheetCount = document.querySelector("#transactionSheetCount");
 const vatReturnBadge = document.querySelector("#vatReturnBadge");
@@ -191,6 +199,7 @@ function renderPreview(data) {
   icpExportButton.disabled = false;
   vatNetTotal.textContent = money(data.vat.totals.net);
   vatVatTotal.textContent = money(data.vat.totals.vat);
+  renderVatPayable(data.vat.payable || calculateVatPayable(data.vat.rows));
   loadVatReturnMark();
   loadIcpReturnMark();
   returnStatus.textContent = vatReturnBadge.textContent === "Not marked"
@@ -230,6 +239,40 @@ function renderPreview(data) {
   checkCount.textContent = `${data.exceptions.length} open`;
 
   renderTransactionSheet(data.transactions || []);
+}
+
+function renderVatPayable(payable = {}) {
+  vatDomestic.textContent = money(payable.domesticVat);
+  vatImport.textContent = money(payable.importVat);
+  vatTotalDue.textContent = money(payable.totalDue);
+  vatInputTax.textContent = money(payable.inputTax);
+  vatSubtotal.textContent = money(payable.subtotal);
+  vatSmallBusiness.textContent = money(payable.smallBusinessRelief);
+  vatPayableReceivable.textContent = money(payable.payableReceivable);
+  vatPayableBadge.textContent = Number(payable.payableReceivable || 0) < 0 ? "Te ontvangen" : "Te betalen";
+}
+
+function sumVatRows(rows, boxes) {
+  return rows
+    .filter(row => boxes.includes(row.box))
+    .reduce((sum, row) => sum + Number(row.vat || 0), 0);
+}
+
+function calculateVatPayable(rows = []) {
+  const domesticVat = sumVatRows(rows, ["1a", "1b", "1d", "1d-verlegd", "1e"]);
+  const importVat = sumVatRows(rows, ["4a-high", "4a-low", "4b-high", "4b-low"]);
+  const totalDue = domesticVat + importVat;
+  const inputTax = Math.abs(sumVatRows(rows, ["5b"]));
+  const subtotal = totalDue - inputTax;
+  return {
+    domesticVat,
+    importVat,
+    totalDue,
+    inputTax,
+    subtotal,
+    smallBusinessRelief: 0,
+    payableReceivable: subtotal
+  };
 }
 
 function groupedTransactions(transactions) {
