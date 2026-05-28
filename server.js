@@ -214,11 +214,13 @@ function groupedTransactionRows(transactions) {
   }
 
   return [...groups.values()].map(group => `
-    <tr class="group"><td colspan="12">${escapeHtml(group.vatBox)} - ${escapeHtml(group.vatCategory)}</td></tr>
+    <tr class="group"><td colspan="14">${escapeHtml(group.vatBox)} - ${escapeHtml(group.vatCategory)}</td></tr>
     ${group.rows.map(row => `
       <tr>
         <td>${escapeHtml(row.vatBox)}</td>
         <td>${escapeHtml(row.vatCategory)}</td>
+        <td>${row.isLatePosting ? "Yes" : ""}</td>
+        <td>${escapeHtml(row.lateFromPeriod || "")}</td>
         <td>${row.sourceUrl ? `<a href="${escapeHtml(row.sourceUrl)}">Open in Xero</a>` : ""}</td>
         <td>${escapeHtml(row.date)}</td>
         <td>${escapeHtml(row.source)}</td>
@@ -232,7 +234,7 @@ function groupedTransactionRows(transactions) {
       </tr>
     `).join("")}
     <tr class="subtotal">
-      <td colspan="9">Subtotal</td>
+      <td colspan="11">Subtotal</td>
       <td class="num">${moneyCell(group.net)}</td>
       <td class="num">${moneyCell(group.tax)}</td>
       <td class="num">${moneyCell(group.gross)}</td>
@@ -295,7 +297,7 @@ function buildExcelReport(returnData) {
   <h2>Transactions by VAT Category</h2>
   <table>
     <thead>
-      <tr><th>VAT box</th><th>VAT category</th><th>Link</th><th>Date</th><th>Source</th><th>Contact</th><th>Reference</th><th>Account</th><th>Tax rate</th><th>Net</th><th>Tax</th><th>Gross</th></tr>
+      <tr><th>VAT box</th><th>VAT category</th><th>Late posting</th><th>Closed period</th><th>Link</th><th>Date</th><th>Source</th><th>Contact</th><th>Reference</th><th>Account</th><th>Tax rate</th><th>Net</th><th>Tax</th><th>Gross</th></tr>
     </thead>
     <tbody>${groupedTransactionRows(returnData.transactions || [])}</tbody>
   </table>
@@ -472,6 +474,27 @@ function xeroSourceUrl(source, orgShortCode) {
   return url.toString();
 }
 
+function sourceId(source) {
+  return source.InvoiceID || source.CreditNoteID || source.BankTransactionID || source.ManualJournalID || "";
+}
+
+function transactionKeyFromParts(parts) {
+  return [
+    parts.sourceType || "",
+    parts.sourceId || "",
+    parts.lineId || "",
+    parts.date || "",
+    parts.reference || "",
+    parts.account || "",
+    parts.net ?? "",
+    parts.tax ?? ""
+  ].join("|");
+}
+
+function transactionKey(line) {
+  return line.transactionKey || transactionKeyFromParts(line);
+}
+
 function amountSign(source) {
   const signs = {
     ACCREC: 1,
@@ -486,15 +509,18 @@ function normaliseLine(source, orgShortCode = "") {
   const signValue = amountSign(source);
   const typeLabel = sourceLabel(source);
   const sourceUrl = xeroSourceUrl(source, orgShortCode);
+  const documentId = sourceId(source);
   const date = source.DateString || source.Date || source.FullyPaidOnDate || "";
   const contact = source.Contact?.Name || "";
   return (source.LineItems || []).map(line => {
     const net = Number(line.LineAmount || 0) * signValue;
     const tax = Number(line.TaxAmount || 0) * signValue;
-    return {
+    const normalised = {
       date: String(date).slice(0, 10),
       source: typeLabel,
       sourceType: source.Type || "",
+      sourceId: documentId,
+      lineId: line.LineItemID || "",
       sourceUrl,
       contact,
       reference: source.InvoiceNumber || source.CreditNoteNumber || source.BankTransactionID || source.Reference || "",
@@ -506,6 +532,8 @@ function normaliseLine(source, orgShortCode = "") {
       tax,
       gross: net + tax
     };
+    normalised.transactionKey = transactionKey(normalised);
+    return normalised;
   });
 }
 
@@ -623,19 +651,13 @@ function calculateIcp(lines, contacts, mapping) {
   return { rows, total };
 }
 
-async function buildPreview(tenantId, fromDate, toDate) {
-  const mapping = await readJson(mappingPath);
+async function fetchLinesForPeriod(tenantId, fromDate, toDate, mapping, taxRateByType, orgShortCode) {
   const where = xeroDateFilter(fromDate, toDate);
-  const [invoices, creditNotes, contacts, taxRates, organisations] = await Promise.all([
+  const [invoices, creditNotes] = await Promise.all([
     listPaged(tenantId, "Invoices", "Invoices", { where }),
-    listPaged(tenantId, "CreditNotes", "CreditNotes", { where }),
-    listPaged(tenantId, "Contacts", "Contacts", { includeArchived: false }),
-    xeroFetch(tenantId, "TaxRates"),
-    xeroFetch(tenantId, "Organisation")
+    listPaged(tenantId, "CreditNotes", "CreditNotes", { where })
   ]);
 
-  const taxRateByType = new Map((taxRates.TaxRates || []).map(rate => [rate.TaxType, rate.Name]));
-  const orgShortCode = organisations.Organisations?.[0]?.ShortCode || "";
   const lines = [
     ...invoices.flatMap(invoice => normaliseLine(invoice, orgShortCode)),
     ...creditNotes.flatMap(note => normaliseLine(note, orgShortCode))
@@ -647,6 +669,77 @@ async function buildPreview(tenantId, fromDate, toDate) {
     ...findVatCategory(line, mapping)
   }));
 
+  return {
+    invoices,
+    creditNotes,
+    lines
+  };
+}
+
+function isFinalisedReturn(record) {
+  return String(record.status || "").toLowerCase().includes("finalised");
+}
+
+function periodBefore(period, fromDate) {
+  return period?.fromDate && period?.toDate && String(period.toDate) < fromDate;
+}
+
+function latestFinalisedVatReturns(history, tenantId, fromDate) {
+  const byPeriod = new Map();
+  for (const record of history) {
+    if (record.tenantId !== tenantId) continue;
+    if (record.returnKind !== "VAT") continue;
+    if (!isFinalisedReturn(record)) continue;
+    if (!periodBefore(record.period, fromDate)) continue;
+    const key = `${record.period.fromDate}|${record.period.toDate}`;
+    if (!byPeriod.has(key)) byPeriod.set(key, record);
+  }
+  return [...byPeriod.values()];
+}
+
+async function findLatePostedLines(tenantId, fromDate, mapping, taxRateByType, orgShortCode) {
+  const history = await readReturnHistory();
+  const finalisedReturns = latestFinalisedVatReturns(history, tenantId, fromDate);
+  const lateLines = [];
+
+  for (const record of finalisedReturns) {
+    const savedKeys = new Set((record.returnData?.transactions || []).map(transactionKey));
+    const current = await fetchLinesForPeriod(
+      tenantId,
+      record.period.fromDate,
+      record.period.toDate,
+      mapping,
+      taxRateByType,
+      orgShortCode
+    );
+
+    for (const line of current.lines) {
+      if (savedKeys.has(transactionKey(line))) continue;
+      lateLines.push({
+        ...line,
+        isLatePosting: true,
+        lateFromPeriod: `${record.period.fromDate} to ${record.period.toDate}`
+      });
+    }
+  }
+
+  return lateLines;
+}
+
+async function buildPreview(tenantId, fromDate, toDate) {
+  const mapping = await readJson(mappingPath);
+  const [contacts, taxRates, organisations] = await Promise.all([
+    listPaged(tenantId, "Contacts", "Contacts", { includeArchived: false }),
+    xeroFetch(tenantId, "TaxRates"),
+    xeroFetch(tenantId, "Organisation")
+  ]);
+
+  const taxRateByType = new Map((taxRates.TaxRates || []).map(rate => [rate.TaxType, rate.Name]));
+  const orgShortCode = organisations.Organisations?.[0]?.ShortCode || "";
+  const currentPeriod = await fetchLinesForPeriod(tenantId, fromDate, toDate, mapping, taxRateByType, orgShortCode);
+  const lateLines = await findLatePostedLines(tenantId, fromDate, mapping, taxRateByType, orgShortCode);
+  const lines = [...currentPeriod.lines, ...lateLines];
+
   const vat = calculateVat(lines, mapping);
   const icp = calculateIcp(lines, contacts, mapping);
   const vat3b = vat.rows
@@ -656,9 +749,11 @@ async function buildPreview(tenantId, fromDate, toDate) {
   return {
     period: { fromDate, toDate },
     counts: {
-      invoices: invoices.length,
-      creditNotes: creditNotes.length,
+      invoices: currentPeriod.invoices.length,
+      creditNotes: currentPeriod.creditNotes.length,
       contacts: contacts.length,
+      currentLines: currentPeriod.lines.length,
+      lateLines: lateLines.length,
       lines: lines.length
     },
     transactions: lines
@@ -667,6 +762,9 @@ async function buildPreview(tenantId, fromDate, toDate) {
         date: line.date,
         source: line.source,
         sourceUrl: line.sourceUrl,
+        transactionKey: line.transactionKey,
+        isLatePosting: Boolean(line.isLatePosting),
+        lateFromPeriod: line.lateFromPeriod || "",
         contact: line.contact,
         reference: line.reference,
         account: line.account,

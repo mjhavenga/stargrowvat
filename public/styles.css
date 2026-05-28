@@ -486,6 +486,10 @@ tbody tr:hover {
   font-weight: 800;
 }
 
+.latePostingRow td {
+  background: #fff8e6;
+}
+
 tfoot td {
   background: #f3f7f9;
   color: var(--ink);

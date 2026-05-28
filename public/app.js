@@ -297,16 +297,21 @@ function groupedTransactions(transactions) {
 }
 
 function renderTransactionSheet(transactions) {
-  transactionSheetCount.textContent = `${transactions.length} lines`;
+  const lateCount = transactions.filter(row => row.isLatePosting).length;
+  transactionSheetCount.textContent = lateCount
+    ? `${transactions.length} lines, ${lateCount} late`
+    : `${transactions.length} lines`;
   transactionRows.innerHTML = transactions.length
     ? groupedTransactions(transactions).map(group => `
       <tr class="groupRow">
-        <td colspan="12">${escapeHtml(group.vatBox)} - ${escapeHtml(group.vatCategory)}</td>
+        <td colspan="14">${escapeHtml(group.vatBox)} - ${escapeHtml(group.vatCategory)}</td>
       </tr>
       ${group.rows.map(row => `
-      <tr>
+      <tr class="${row.isLatePosting ? "latePostingRow" : ""}">
         <td>${escapeHtml(row.vatBox)}</td>
         <td>${escapeHtml(row.vatCategory)}</td>
+        <td>${row.isLatePosting ? "Yes" : ""}</td>
+        <td>${escapeHtml(row.lateFromPeriod || "")}</td>
         <td>${row.sourceUrl ? `<a href="${escapeHtml(row.sourceUrl)}" target="_blank" rel="noopener">Open</a>` : "-"}</td>
         <td>${escapeHtml(row.date)}</td>
         <td>${escapeHtml(row.source)}</td>
@@ -320,13 +325,13 @@ function renderTransactionSheet(transactions) {
       </tr>
       `).join("")}
       <tr class="subtotalRow">
-        <td colspan="9">Subtotal</td>
+        <td colspan="11">Subtotal</td>
         <td class="num">${money(group.net)}</td>
         <td class="num">${money(group.tax)}</td>
         <td class="num">${money(group.gross)}</td>
       </tr>
     `).join("")
-    : "<tr class=\"emptyRow\"><td colspan=\"12\">No Xero transactions loaded yet.</td></tr>";
+    : "<tr class=\"emptyRow\"><td colspan=\"14\">No Xero transactions loaded yet.</td></tr>";
 }
 
 async function loadStatus() {
